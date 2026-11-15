@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MindCare – โรงเรียนนบพิตำวิทยา</title>
+<style>
+:root{--bg:#f6f4ec;--card:#fff;--tx:#25332e;--mut:#6b7a73;--pri:#6fb59b;--sky:#bfe0ee;--line:#dfe6e1;--warm:#f3c98b}
+[data-theme=dark]{--bg:#18211e;--card:#222e2a;--tx:#e8f0ec;--mut:#9db0a8;--pri:#7cc4a9;--sky:#35505c;--line:#33423d;--warm:#a8803f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,"Noto Sans Thai",sans-serif;line-height:1.6}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;max-width:640px;margin:auto}
+main{max-width:640px;margin:auto;padding:0 16px 120px}
+.card{background:var(--card);border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 1px 4px #0001}
+h2,h3{margin:.6em 0 .3em}.mut{color:var(--mut);font-size:14px}.hide{display:none!important}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--line);z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--mut);padding:8px 0;font-size:11px}nav button span{display:block;font-size:20px}nav .on{color:var(--pri);font-weight:700}
+.btn{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:9px 16px;font:inherit;cursor:pointer;margin:4px 0}.btn.warm{background:var(--warm);color:#3b2c0e}
+.ghost{background:none;border:0;font-size:20px;color:var(--tx);cursor:pointer}
+.moods{display:flex;gap:6px}.moods button{flex:1;font-size:26px;padding:8px 2px;border-radius:12px;border:2px solid transparent;background:var(--card);cursor:pointer}
+.moods small{display:block;font-size:11px;color:var(--tx)}.moods .on{border-color:var(--pri);background:var(--sky)}
+textarea,input:not([type=checkbox]),select{width:100%;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font:inherit}
+textarea{min-height:60px}label{display:block;margin:8px 0;font-size:14px}.prompt{background:var(--sky);padding:8px 12px;border-radius:10px}
+.bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--pri)}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:0 0 auto}.row>.grow{flex:1}
+details{margin:6px 0}summary{cursor:pointer;font-weight:600}
+#bad{position:fixed;right:12px;bottom:70px;z-index:6;background:var(--warm);color:#3b2c0e;border:0;border-radius:24px;padding:10px 14px;box-shadow:0 2px 8px #0003;cursor:pointer}
+dialog{border:0;border-radius:16px;background:var(--card);color:var(--tx);max-width:420px}
+#breath{font-size:22px;text-align:center;padding:26px;transition:transform 4s}
+#lock{position:fixed;inset:0;background:var(--bg);z-index:99;display:flex;align-items:center;justify-content:center}
+#report{display:none}
+@media print{body>*:not(#report){display:none!important}#report{display:block;color:#000;padding:20px}#report p{margin:4px 0}}
+</style>
+</head>
+<body>
+<div id="lock" class="hide"><div class="card"><h2>🔒 MindCare</h2><input id="pin" type="password" inputmode="numeric" placeholder="ใส่รหัส PIN"><button class="btn" data-act="unlock">เปิด</button><p id="lockmsg"></p></div></div>
+<header><b>🌿 MindCare</b> <small>โรงเรียนนบพิตำวิทยา</small><button class="ghost" data-act="theme" title="โหมดมืด">🌓</button></header>
+<main id="view"></main>
+<button id="bad" data-act="bad">💛 วันนี้แย่</button>
+<dialog id="dlg"><h3>ไม่เป็นไรนะ วันแบบนี้เกิดขึ้นได้</h3><div id="breath">กดเริ่มแล้วหายใจตามจังหวะ</div>
+<button class="btn" data-act="breathe">เริ่ม / หยุด</button> <button class="btn warm" data-act="tohelp">ไปหน้าช่วยเหลือ</button> <button class="ghost" data-act="close">ปิด</button></dialog>
+<nav id="nav"></nav>
+<section id="report"></section>
+<script>
+const MOODS=[['😢','แย่มาก'],['😟','ไม่ค่อยดี'],['😐','เฉยๆ'],['🙂','ดี'],['😊','ดีมาก']];
+const PROMPTS=['ขอบคุณอะไรหนึ่งอย่างวันนี้','หายใจลึกๆ 3 ครั้ง แล้วเขียนสิ่งที่รู้สึก','มีใครที่ทำให้วันนี้ดีขึ้นบ้าง?','อะไรทำให้คุณยิ้มได้วันนี้?','ถ้าเพื่อนรู้สึกแบบคุณ คุณจะบอกเขาว่าอะไร?'];
+const CHALLENGES=['ดื่มน้ำให้พอ','เดินเล่น 10 นาที','เขียนสิ่งดี ๆ 3 ข้อ','ฟังเพลงที่ชอบ','ส่งข้อความหาคนที่ไว้ใจ','ยืดเส้นยืดสาย 5 นาที','วางมือถือก่อนนอน 30 นาที'];
+const QUOTES=['ไม่เป็นไรเลยที่วันนี้จะไม่ไหว พรุ่งนี้ค่อยเริ่มใหม่ได้','ก้าวเล็ก ๆ ก็นับเป็นก้าว','ความรู้สึกมาแล้วก็ไป คุณไม่ต้องสู้กับมันตลอดเวลา','ใจดีกับตัวเองเหมือนที่ใจดีกับเพื่อน','การขอความช่วยเหลือคือความกล้าหาญ'];
+const ARTICLES=[
+['ยอมรับความรู้สึก','ความเศร้า กังวล หรือโกรธเป็นเรื่องปกติ ลองบอกตัวเองว่า "ตอนนี้ฉันรู้สึก...และไม่เป็นไร" การสังเกตโดยไม่ตัดสินช่วยให้ความรู้สึกเบาลง'],
+['ใจดีกับตัวเอง','เมื่อทำพลาด ลองพูดกับตัวเองเหมือนพูดกับเพื่อนสนิท ทุกคนมีวันที่ไม่สมบูรณ์แบบ'],
+['หายใจและ mindfulness','นั่งสบาย หายใจเข้า 4 วินาที กลั้น 4 วินาที หายใจออก 6 วินาที ทำซ้ำ 5–10 นาที ค่อย ๆ สังเกตลมหายใจและเสียงรอบตัว'],
+['จัดการความคิดลบ','ถามตัวเองว่า "นี่คือความจริงหรือความคิด?" "มีหลักฐานอะไร?" แล้วเขียนมุมมองที่ใจดีกว่าอีกหนึ่งข้อ'],
+['นอน ออกกำลังกาย และคนที่ไว้ใจ','นอนเวลาใกล้เคียงกันทุกวัน เดินหรือขยับตัวเบา ๆ และพูดคุยกับคนที่ไว้ใจ ช่วยให้อารมณ์ดีขึ้นได้']];
+
+const $=s=>document.querySelector(s);
+const KEY='mindcare_v2';
+let S=JSON.parse(localStorage.getItem(KEY)||'null')||{e:{},g:[],h:{},hl:['นอนตรงเวลา','ออกกำลังกายเบา ๆ','พูดคุยกับเพื่อน'],set:{},r:7};
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const add=(d,n)=>{const x=new Date(d);x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10)};
+const TABS=[['journal','📝','บันทึก'],['learn','📚','ความรู้'],['progress','📈','ก้าวหน้า'],['habits','✅','กิจกรรม'],['inspire','✨','แรงบันดาลใจ'],['help','🆘','ช่วยเหลือ']];
+let tab='journal',cur=0;
+const mood=d=>(S.e[d]||{}).m||0;
+const streak=()=>{let d=today(),n=0;if(!mood(d))d=add(d,-1);while(mood(d)){n++;d=add(d,-1)}return n};
+const avg=(a,b)=>{const v=[];for(let i=a;i<=b;i++){const m=mood(add(today(),-i));if(m)v.push(m)}return v.length?v.reduce((x,y)=>x+y)/v.length:0};
+const hStreak=h=>{let d=today(),n=0;if(!S.h[h+d])d=add(d,-1);while(S.h[h+d]){n++;d=add(d,-1)}return n};
+
+const V={
+journal(){const e=S.e[today()]||{};cur=e.m||0;
+ return `<h2>วันนี้รู้สึกอย่างไร?</h2><div class="moods">${MOODS.map((m,i)=>`<button class="${cur==i+1?'on':''}" data-act="mood" data-v="${i+1}">${m[0]}<small>${m[1]}</small></button>`).join('')}</div>
+ <p class="prompt">💡 ${PROMPTS[new Date().getDate()%PROMPTS.length]}</p>
+ ${[['f','วันนี้รู้สึกอย่างไร?'],['a','สิ่งที่เกิดขึ้น'],['w','สิ่งเล็ก ๆ ที่ทำได้ดี'],['n','สิ่งที่อยากลองพรุ่งนี้']].map(([k,l])=>`<label>${l}<textarea id="j_${k}" maxlength="500">${esc(e[k])}</textarea></label>`).join('')}
+ <button class="btn" data-act="savej">บันทึก</button> <span id="msg" class="mut"></span>
+ <h3>ย้อนหลัง</h3>${Object.keys(S.e).sort().reverse().slice(0,10).map(d=>`<details class="card"><summary>${d} ${MOODS[S.e[d].m-1]?.[0]||''}</summary><p>${esc(S.e[d].f)}<br>${esc(S.e[d].a)}<br>${esc(S.e[d].w)}<br>${esc(S.e[d].n)}</p></details>`).join('')||'<p class="mut">ยังไม่มีบันทึก</p>'}`},
+learn(){return `<h2>การทำใจและความรู้</h2>`+ARTICLES.map(a=>`<details class="card"><summary>${a[0]}</summary><p>${a[1]}</p></details>`).join('')+`<p class="mut">เนื้อหาเพิ่มได้ที่ไฟล์ js/data.js</p>`},
+progress(){const n=S.r,days=Array.from({length:n},(_,i)=>add(today(),i-n+1)),w=300/n;
+ const a=avg(0,6),b=avg(7,13),written=Object.values(S.e).filter(e=>e.m).length,s=streak();
+ const rev=!a?'สัปดาห์นี้ยังไม่มีบันทึก ลองเริ่มวันนี้ได้เลย':b?(a>b+.2?'สัปดาห์นี้อารมณ์ดีขึ้นกว่าสัปดาห์ก่อน 🌱':a<b-.2?'สัปดาห์นี้อารมณ์ต่ำกว่าสัปดาห์ก่อน ใจดีกับตัวเองและลองคุยกับคนที่ไว้ใจนะ':'อารมณ์สัปดาห์นี้ใกล้เคียงกับสัปดาห์ก่อน'):'เขียนต่อไปอีกสักสัปดาห์ แล้วจะเห็นการเปรียบเทียบ';
+ const goals=[{t:'เขียนบันทึก 5 วันติด',n:Math.min(s,5),max:5,auto:1},...S.g.map((g,i)=>({...g,i}))];
+ return `<h2>ความก้าวหน้า</h2><div class="card"><select data-act="range"><option value="7" ${n==7?'selected':''}>7 วัน</option><option value="30" ${n==30?'selected':''}>30 วัน</option><option value="90" ${n==90?'selected':''}>90 วัน</option></select>
+ <svg viewBox="0 0 300 110" width="100%">${days.map((d,i)=>{const m=mood(d);return `<rect x="${i*w+1}" y="${110-(m*20||2)}" width="${Math.max(w-2,1)}" height="${m*20||2}" rx="2" fill="${m?'var(--pri)':'var(--line)'}"/>`}).join('')}</svg></div>
+ <div class="card"><b>📊 สถิติ</b><p>เขียนแล้ว ${written} วัน · ต่อเนื่อง ${s} วัน · วันที่ดี (🙂😊) ${Object.values(S.e).filter(e=>e.m>=4).length} วัน</p><b>🗓 รีวิวรายสัปดาห์</b><p>${rev}</p></div>
+ <div class="card"><b>🎯 เป้าหมายเล็ก ๆ</b>${goals.map(g=>`<p>${esc(g.t)} (${g.n}/${g.max})<span class="bar"><i style="width:${g.n/g.max*100}%"></i></span>${g.auto?'':`<button class="btn" data-act="gplus" data-i="${g.i}">+1</button> <button class="ghost" data-act="gdel" data-i="${g.i}">🗑</button>`}</p>`).join('')}
+ <div class="row"><input class="grow" id="gt" placeholder="เป้าหมายใหม่ เช่น ออกไปเดิน 10 นาที"><input id="gm" type="number" min="1" value="5" style="width:70px"><button class="btn" data-act="gadd">เพิ่ม</button></div></div>`},
+habits(){const t=today(),c=CHALLENGES[new Date().getDate()%CHALLENGES.length];
+ return `<h2>กิจกรรมและนิสัยดี</h2><div class="card"><b>ท้าทายวันนี้</b><label><input type="checkbox" data-act="chk" data-k="c:${t}" ${S.h['c:'+t]?'checked':''}> ${c}</label></div>
+ <div class="card"><b>นิสัยที่อยากสร้าง</b>${S.hl.map((h,i)=>`<label><input type="checkbox" data-act="chk" data-k="${esc(h)}${t}" ${S.h[h+t]?'checked':''}> ${esc(h)} <span class="mut">🔥 ${hStreak(h)} วัน</span> <button class="ghost" data-act="hdel" data-i="${i}">🗑</button></label>`).join('')}
+ <div class="row"><input class="grow" id="ht" placeholder="เพิ่มนิสัย"><button class="btn" data-act="hadd">เพิ่ม</button></div></div>
+ <div class="card"><b>แบบฝึกหัดสั้น ๆ</b><p>🌬 หายใจ 4-4-6 (กดปุ่ม "วันนี้แย่" ที่มุมขวา) · 🙏 Gratitude: เขียนสิ่งดี 3 ข้อในแท็บบันทึก · 🧘 Body scan: หลับตา ไล่ความรู้สึกจากศีรษะถึงปลายเท้า ช้า ๆ 3 นาที</p></div>`},
+inspire(){const good=Object.keys(S.e).sort().reverse().filter(d=>S.e[d].m>=4&&(S.e[d].w||S.e[d].f)).slice(0,5);
+ return `<h2>แรงบันดาลใจ</h2><div class="card prompt">“${QUOTES[new Date().getDate()%QUOTES.length]}”</div>
+ <h3>🌤 วันที่รู้สึกดี (จากบันทึกของคุณ)</h3>${good.map(d=>`<div class="card"><span class="mut">${d}</span><p>${esc(S.e[d].w||S.e[d].f)}</p></div>`).join('')||'<p class="mut">เมื่อมีวันที่รู้สึกดี ข้อความของคุณจะมาปรากฏที่นี่</p>'}
+ <p class="mut">ส่วนชุมชนยังไม่เปิด เพื่อความปลอดภัยของผู้ใช้วัยเรียน เริ่มจากพื้นที่ส่วนตัวก่อน</p>`},
+help(){const st=S.set;return `<h2>ช่วยเหลือและแหล่งข้อมูล</h2>
+ <div class="card" style="border:2px solid var(--warm)"><b>ติดต่อด่วน</b><p>สายด่วนสุขภาพจิต <a href="tel:1323"><b>1323</b></a> (24 ชม.)<br>เหตุฉุกเฉิน <a href="tel:1669"><b>1669</b></a><br>ครูแนะแนว โรงเรียนนบพิตำวิทยา: <i>[ใส่ห้อง/เบอร์ติดต่อ]</i></p></div>
+ <div class="card"><b>เมื่อไหร่ควรบอกผู้ใหญ่?</b><p>เมื่อรู้สึกแย่ติดต่อกันเกิน 2 สัปดาห์ นอนหรือกินผิดปกติมาก ไม่อยากทำสิ่งที่เคยชอบ มีความคิดทำร้ายตัวเอง หรือรู้สึกไม่ปลอดภัย ให้บอกผู้ปกครอง ครู หรือโทร 1323 ทันที คุณไม่ต้องรับมือคนเดียว</p></div>
+ <div class="card"><b>แหล่งข้อมูลที่น่าเชื่อถือ</b><p><a href="https://www.dmh.go.th" target="_blank" rel="noopener">กรมสุขภาพจิต</a> · <a href="https://www.who.int/health-topics/mental-health" target="_blank" rel="noopener">WHO Mental health</a></p></div>
+ <div class="card"><b>⚙ ตั้งค่า</b><p><button class="btn" data-act="pin">${st.pin?'เปลี่ยน/ลบ':'ตั้ง'}รหัสล็อกแอป</button> <button class="btn" data-act="rem">แจ้งเตือน 19:00: ${st.rem?'เปิด':'ปิด'}</button> <button class="btn" data-act="pdf">ส่งออก PDF</button> <button class="btn warm" data-act="wipe">ลบข้อมูลทั้งหมด</button></p>
+ <p class="mut">ข้อมูลเก็บในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่ส่งออกอินเทอร์เน็ต รหัส PIN เป็นการล็อกหน้าจอ ไม่ใช่การเข้ารหัสข้อมูล การแจ้งเตือนทำงานเมื่อเปิดแอปค้างไว้ แอปนี้ไม่ใช่เครื่องมือวินิจฉัยโรค</p></div>`}};
+
+function go(t){tab=t;$('#view').innerHTML=V[t]();$('#nav').innerHTML=TABS.map(x=>`<button class="${x[0]==t?'on':''}" data-act="tab" data-t="${x[0]}"><span>${x[1]}</span>${x[2]}</button>`).join('');scrollTo(0,0)}
+const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('mc'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+let bt=null;
+function breathe(){const el=$('#breath');if(bt){clearInterval(bt);bt=null;el.textContent='กดเริ่มแล้วหายใจตามจังหวะ';return}
+ const P=[['หายใจเข้า…',4],['กลั้นไว้…',4],['หายใจออกช้า ๆ…',6]];let i=0,s=0;el.textContent=P[0][0];
+ bt=setInterval(()=>{if(++s>=P[i][1]){s=0;i=(i+1)%3;el.textContent=P[i][0]}},1000)}
+function report(){const days=Object.keys(S.e).sort().slice(-30);
+ $('#report').innerHTML=`<h2>MindCare – สรุปอารมณ์ 30 วันล่าสุด</h2><p>พิมพ์เมื่อ ${today()}</p>`+days.map(d=>`<p><b>${d}</b> ${MOODS[S.e[d].m-1]?.join(' ')||''} – ${esc(S.e[d].f)} ${esc(S.e[d].a)} ${esc(S.e[d].w)}</p>`).join('');print()}
+
+const A={
+tab:t=>go(t.dataset.t),
+mood:t=>{cur=+t.dataset.v;document.querySelectorAll('.moods button').forEach((b,i)=>b.classList.toggle('on',i+1==cur))},
+savej:()=>{if(!cur){$('#msg').textContent='เลือกอารมณ์ก่อนนะ';return}
+ S.e[today()]={m:cur,f:$('#j_f').value,a:$('#j_a').value,w:$('#j_w').value,n:$('#j_n').value};save();$('#msg').textContent='บันทึกแล้ว ✓ เก่งมาก';if(cur<=2)$('#msg').textContent+=' · วันนี้ดูหนักนะ กดปุ่ม "วันนี้แย่" ได้เสมอ'},
+range:t=>{S.r=+t.value;save();go('progress')},
+gadd:()=>{const t=$('#gt').value.trim();if(t){S.g.push({t,n:0,max:Math.max(1,+$('#gm').value||5)});save();go('progress')}},
+gplus:t=>{const g=S.g[t.dataset.i];g.n=Math.min(g.max,g.n+1);save();go('progress')},
+gdel:t=>{S.g.splice(t.dataset.i,1);save();go('progress')},
+chk:t=>{S.h[t.dataset.k]=t.checked;save();go(tab)},
+hadd:()=>{const t=$('#ht').value.trim();if(t){S.hl.push(t);save();go('habits')}},
+hdel:t=>{S.hl.splice(t.dataset.i,1);save();go('habits')},
+theme:()=>{S.set.dark=!S.set.dark;save();document.documentElement.dataset.theme=S.set.dark?'dark':''},
+bad:()=>$('#dlg').showModal(),close:()=>{if(bt)breathe();$('#dlg').close()},breathe,
+tohelp:()=>{A.close();go('help')},
+pin:async()=>{if(S.set.pin&&confirm('ลบรหัส PIN? (ยกเลิก = เปลี่ยนรหัสใหม่)')){delete S.set.pin;save();return go('help')}
+ const p=prompt('ตั้งรหัส PIN (ตัวเลข 4 หลักขึ้นไป)');if(p&&/^\d{4,}$/.test(p)){S.set.pin=await sha(p);save();go('help')}},
+rem:async()=>{if(!S.set.rem){if(!('Notification' in window)||await Notification.requestPermission()!=='granted')return alert('เบราว์เซอร์ไม่อนุญาตการแจ้งเตือน');S.set.rem=1}else S.set.rem=0;save();go('help')},
+pdf:report,
+wipe:()=>{if(confirm('ลบข้อมูลทั้งหมดในเครื่องนี้? ย้อนกลับไม่ได้')){localStorage.removeItem(KEY);location.reload()}},
+unlock:async()=>{if(await sha($('#pin').value)===S.set.pin)$('#lock').classList.add('hide');else $('#lockmsg').textContent='รหัสไม่ถูกต้อง'}};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(t&&t.tagName!=='SELECT'&&t.type!=='checkbox')A[t.dataset.act]?.(t)});
+document.addEventListener('change',e=>{const t=e.target.closest('[data-act]');if(t&&(t.tagName==='SELECT'||t.type==='checkbox'))A[t.dataset.act](t)});
+
+document.documentElement.dataset.theme=S.set.dark?'dark':'';
+if(S.set.pin)$('#lock').classList.remove('hide');
+setInterval(()=>{const n=new Date();if(S.set.rem&&n.getHours()==19&&n.getMinutes()==0&&!mood(today())&&Notification.permission==='granted')new Notification('MindCare',{body:'วันนี้เขียนบันทึกสักหน่อยไหม? 🌿'})},60000);
+go('journal');
+</script>
+</body>
+</html>
